@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "ASTER L1A Search AOI",
+        "description": "Area of Interest for ASTER L1A data download"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-127.42422, 51.63208],
+            [-127.55519, 51.23362],
+            [-127.14172, 50.98211],
+            [-125.269, 50.12672],
+            [-123.48633, 49.19461],
+            [-121.69028, 49.16882],
+            [-121.59312, 50.35901],
+            [-122.85932, 51.39365],
+            [-126.16206, 52.80956],
+            [-127.42422, 51.63208]
+          ]
+        ]
+      }
+    }
+  ]
+}
