@@ -50,6 +50,7 @@ class MMASTERWorkflow:
         self.do_angle = kwargs.get('do_angle', False)
         self.nocor_dem = kwargs.get('nocor_dem', False)
         self.fit_version = kwargs.get('fit_version', 2)
+        self.no_fill_holes = kwargs.get('no_fill_holes', False)
         
         # File suffixes (will be created by MicMac)
         self.n_suffix = "_3N"
@@ -492,12 +493,31 @@ class MMASTERWorkflow:
         output_dem = Path.cwd() / f'{self.scene_name}_DEM.tif'
         
         if dem_file.exists():
+            # Choose resampling method based on no_fill_holes flag
+            if self.no_fill_holes:
+                # Use nearest neighbor to avoid interpolation/extrapolation
+                resample_method = 'near'
+                print("✓ Using nearest neighbor resampling (no hole filling)")
+            else:
+                # Use cubic spline (original behavior)
+                resample_method = 'cubicspline'
+                print("✓ Using cubic spline resampling (default)")
+            
             cmd = [
                 'gdal_translate', '-tr', str(self.resterr), str(self.resterr),
-                '-r', 'cubicspline', '-a_srs', self.proj, '-co', 'COMPRESS=LZW',
-                '-co', 'TILED=YES', '-co', 'BIGTIFF=YES',
-                str(dem_file), str(output_dem)
+                '-r', resample_method, '-a_srs', self.proj, 
+                '-a_nodata', '-9999',  # Set nodata value explicitly
+                '-co', 'COMPRESS=LZW',
+                '-co', 'TILED=YES', 
+                '-co', 'BIGTIFF=YES',
             ]
+            
+            # Only add NODATA to output if we're preserving holes
+            if self.no_fill_holes:
+                cmd.extend(['-co', 'NODATA=-9999'])
+            
+            cmd.extend([str(dem_file), str(output_dem)])
+            
             if self.run_command(cmd):
                 print(f"✓ DEM created: {output_dem.name}")
         else:
@@ -530,6 +550,7 @@ class MMASTERWorkflow:
         print(f"Scene name: {self.scene_name}")
         print(f"UTM Zone: {self.utm_zone}")
         print(f"Resolution: {self.resterr}m")
+        print(f"Fill holes: {'No (nearest neighbor)' if self.no_fill_holes else 'Yes (cubic spline)'}")
         print("="*70)
         
         # Store original CWD
@@ -615,6 +636,7 @@ def main():
 Example:
     python mmaster_workflow.py -d AST_L1A_00408242025175328_20251011031216 -z "11 +north"
     python mmaster_workflow.py -d /path/to/aster_data -z "4 +north" -t 30 -f 1 -a
+    python mmaster_workflow.py -d /path/to/aster_data -z "4 +north" --no-fill-holes
         """
     )
     
@@ -639,6 +661,9 @@ Example:
     parser.add_argument('-i', '--fitversion', type=int, default=2,
                        choices=[1, 2],
                        help='Fit version for parallax correction (default: 2)')
+    parser.add_argument('--no-fill-holes', action='store_true',
+                       help='Do not fill holes or interpolate beyond actual data in final DEM. '
+                            'Uses nearest neighbor resampling instead of cubic spline.')
     
     args = parser.parse_args()
     
@@ -653,7 +678,8 @@ Example:
         water_mask=args.water_mask,
         do_angle=args.angle,
         nocor_dem=args.nocor,
-        fit_version=args.fitversion
+        fit_version=args.fitversion,
+        no_fill_holes=args.no_fill_holes
     )
     
     # Run workflow
