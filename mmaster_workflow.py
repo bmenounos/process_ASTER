@@ -467,7 +467,7 @@ class MMASTERWorkflow:
         
         cmd = [
             'mm3d', 'SateLib', 'ApplyParallaxCor',
-            self.b_tif_file, str(parallax_file), # Pass only the file name, not the full path
+            self.b_tif_file, 'GeoI-Px/Px2_Num16_DeZoom1_Geom-Im.tif', # Use relative path from CWD
             f'FitASTER={self.fit_version}', 'ExportFitASTER=1',
             f'ASTERSceneName={self.scene_name}'
         ]
