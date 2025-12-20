@@ -149,7 +149,7 @@ def extract_all_datasets(hdf_file, output_dir):
             
             # Handle different dataset types
             if ds_type == 'ImageData':
-                # Save as GeoTIFF
+                # Save as GeoTIFF with GCPs
                 output_file += '.tif'
                 print(f"  Extracting {ds_type} → {os.path.basename(output_file)}")
                 
@@ -158,8 +158,39 @@ def extract_all_datasets(hdf_file, output_dir):
                 
                 driver = gdal.GetDriverByName('GTiff')
                 out_ds = driver.Create(output_file, data.shape[1], data.shape[0], 1, 
-                                      gdal.GDT_UInt16, options=['COMPRESS=LZW'])
+                                      gdal.GDT_UInt16, options=['COMPRESS=LZW', 'PREDICTOR=2'])
                 out_ds.GetRasterBand(1).WriteArray(data)
+                
+                # Set WGS84 projection
+                from osgeo import osr
+                srs = osr.SpatialReference()
+                srs.ImportFromEPSG(4326)
+                out_ds.SetProjection(srs.ExportToWkt())
+                
+                # Add GCPs from corrected lat/lon lattice
+                img_h, img_w = data.shape
+                lat_h, lat_w = lat_lattice.shape
+                
+                gcps = []
+                gcp_id = 1
+                for r in range(lat_h):
+                    for c in range(lat_w):
+                        if lat_lattice[r, c] != 0 or lon_lattice[r, c] != 0:
+                            # Map lattice position to pixel coordinates
+                            pix_x = (c / (lat_w - 1)) * img_w + 0.5
+                            pix_y = (r / (lat_h - 1)) * img_h - 205.5
+                            
+                            gcp = gdal.GCP(lon_lattice[r, c], lat_lattice[r, c], 0,
+                                         pix_x, pix_y, str(gcp_id), str(gcp_id))
+                            gcps.append(gcp)
+                            gcp_id += 1
+                
+                out_ds.SetGCPs(gcps, srs.ExportToWkt())
+                
+                # Copy HDF metadata
+                hdf_meta = gdal.Open(hdf_file).GetMetadata()
+                out_ds.SetMetadata(hdf_meta)
+                
                 out_ds.FlushCache()
                 out_ds = None
                 
@@ -179,9 +210,13 @@ def extract_all_datasets(hdf_file, output_dir):
                         np.savetxt(output_file, data, fmt='%.6f')
                     elif data.ndim == 3:
                         # For 3D arrays (e.g., SightVector with shape [time, cols, 3])
-                        # Reshape to 2D: each row is flattened vector
-                        reshaped = data.reshape(-1, data.shape[-1])
-                        np.savetxt(output_file, reshaped, fmt='%.6f')
+                        # Write with blank lines between time steps for MicMac compatibility
+                        with open(output_file, 'w') as f:
+                            for t in range(data.shape[0]):
+                                for c in range(data.shape[1]):
+                                    f.write(' '.join(f'{v:.6f}' for v in data[t, c]) + '\n')
+                                if t < data.shape[0] - 1:  # Add blank line between time steps
+                                    f.write('\n')
                     else:
                         print(f"    Warning: Skipping {ds_type} - unsupported dimensions: {data.shape}")
 
