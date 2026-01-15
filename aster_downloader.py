@@ -146,7 +146,7 @@ class ASTERDaytimeDownloader:
         return True
 
     def search_granules(self, polygon=None, bbox=None, start_date=None, end_date=None, 
-                        max_results=100, max_cloud_cover=None): # ADDED max_cloud_cover
+                        max_results=1000, max_cloud_cover=None): # ADDED max_cloud_cover
         """
         Search for ASTER L1A V004 granules within AOI and date range.
 
@@ -355,8 +355,8 @@ class ASTERDaytimeDownloader:
                 continue
 
             # Download each URL (usually just one HDF file per granule)
-            for url in urls:
-                file_path = self.download_from_url(url, output_dir)
+            if urls:
+                file_path = self.download_from_url(urls[0], output_dir)  # Download first URL only
                 if file_path:
                     downloaded_files.append(file_path)
 
@@ -376,13 +376,13 @@ if __name__ == "__main__":
     PASSWORD = "your_earthdata_password"
 
     # Define parameters
-    GEOJSON_FILE = "aoi_polygon.geojson"
-    START_DATE = "2025-07-01"
-    END_DATE = "2025-09-30"
-    OUTPUT_DIR = "aster_daytime_data"
+    GEOJSON_FILE = "sc.geojson"
+    START_DATE = "2025-08-01"
+    END_DATE = "2025-08-30"
+    OUTPUT_DIR = "aster_daytime_data2"
     
     # --- NEW PARAMETER: Set max cloud cover (e.g., 10 for less than 10% clouds) ---
-    MAX_CLOUD_COVER = 10 
+    MAX_CLOUD_COVER = 5 
 
     # Create downloader instance
     downloader = ASTERDaytimeDownloader(USERNAME, PASSWORD)
@@ -393,7 +393,7 @@ if __name__ == "__main__":
         start_date=START_DATE,
         end_date=END_DATE,
         output_dir=OUTPUT_DIR,
-        max_results=50,
+        max_results=1000,
         max_cloud_cover=MAX_CLOUD_COVER # PASS CLOUD COVER FILTER
     )
 
